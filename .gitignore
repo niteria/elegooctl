@@ -4,6 +4,12 @@
 /.direnv/
 /recordings/
 /captures/
+/recording/
+recording.json
+status.jsonl
+video-*.mp4
+finished.jpg
+/ready.json
 *.gcode
 *.3mf
 .env

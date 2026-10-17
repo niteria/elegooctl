@@ -1,6 +1,6 @@
 {
   description = "Elegoo printer LAN command-line tools";
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
   outputs =
     { self, nixpkgs }:
     let
@@ -32,7 +32,7 @@
         {
           default = pkgs.mkShell {
             packages = [
-              pkgs.go
+              pkgs.go_1_27
               pkgs.ffmpeg-headless
               pkgs.nixfmt
             ];

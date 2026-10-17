@@ -1,10 +1,10 @@
 {
   lib,
-  buildGoModule,
+  buildGo127Module,
   makeWrapper,
   ffmpeg-headless,
 }:
-buildGoModule {
+buildGo127Module {
   pname = "elegooctl";
   version = "0.1.0";
   src = lib.cleanSource ./.;
@@ -26,6 +26,7 @@ buildGoModule {
   '';
   meta = {
     description = "LAN status, verified uploads, camera capture and job monitoring for Elegoo printers";
+    license = lib.licenses.mit;
     mainProgram = "elegooctl";
     platforms = lib.platforms.linux;
   };

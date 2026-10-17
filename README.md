@@ -12,13 +12,16 @@ go test ./...
 go vet ./...
 ```
 
-Go 1.24 or newer is required. Only `record` needs an additional executable,
+Go 1.27.2 or newer is required. Only `record` needs an additional executable,
 `ffmpeg`. The Nix package includes it on PATH:
 
 ```sh
 nix build
 ./result/bin/elegooctl --help
 ```
+
+The Nix package and development shell explicitly use Go 1.27 from the pinned
+Nixpkgs input; CI uses the version in `go.mod`.
 
 ## Commands
 
@@ -35,11 +38,15 @@ elegooctl --host printer.example upload part.gcode
 elegooctl --host printer.example upload --wait-idle --timeout 2h part.gcode
 elegooctl --host printer.example upload --verify-only part.gcode
 
-elegooctl --host printer.example snapshot --output finished.jpg
-elegooctl --host printer.example watch --file part.gcode --output ready.json
-elegooctl --host printer.example record --file part.gcode --output recording
+mkdir -p captures recordings
+elegooctl --host printer.example snapshot --output captures/finished.jpg
+elegooctl --host printer.example watch --file part.gcode --output captures/ready.json
+elegooctl --host printer.example record --file part.gcode --output recordings/part
 elegooctl --host printer.example jog --axis Z --step 5
 ```
+
+`captures/` and `recordings/` are git-ignored. Choose new output filenames and a
+new recording subdirectory for each run; existing outputs are not overwritten.
 
 - **Upload:** streams in 1 MiB chunks and downloads the published file to verify
   its size and MD5. Handles delayed file publication. With `--wait-idle`, waits
@@ -69,14 +76,28 @@ goes to stdout; progress and errors go to stderr. SIGINT/SIGTERM cancel requests
 and finalize recordings. `watch`/`record` default to a 24-hour overall timeout;
 recording itself defaults to a six-hour limit after job attachment.
 
+## Network and output privacy
+
+Use this tool on a trusted LAN. Printer commands use plain WebSocket (`ws://`),
+and file transfers and camera capture use plain HTTP. The CLI supplies no
+authentication or encryption. MD5 verification checks transfer integrity; it
+does not authenticate the printer or the file's origin.
+
+Status, attributes, query results and recording traces can contain device
+identifiers, network addresses, print filenames, task IDs and timestamps.
+Snapshots and videos show the printer camera's field of view. Review and redact
+these outputs before sharing them, including in issue reports. Keep runtime
+output in the ignored directories above or outside the checkout.
+
 ## Notification integration
 
 Telegram and desktop notification delivery belong outside the printer CLI.
 Use a separate executable via `--notify-command`:
 
 ```sh
+mkdir -p captures
 elegooctl --host printer.example --notify-command /path/to/print-notifier \
-  watch --file part.gcode --output ready.json
+  watch --file part.gcode --output captures/ready.json
 ```
 
 On readiness it receives this JSON on stdin, without shell evaluation:
@@ -110,7 +131,39 @@ Power-management integration is external too. For long-running jobs on a Linux
 desktop you can use `systemd-inhibit ... elegooctl ... record/watch`. The core
 binary does not change host sleep policy or install background services.
 
+## Protocol references
+
+- [CBD's SDCP V3.0.0 specification](https://github.com/cbd-tech/SDCP-Smart-Device-Control-Protocol-V3.0.0/blob/main/SDCP%28Smart%20Device%20Control%20Protocol%29_V3.0.0_EN.md)
+  describes the base WebSocket protocol and chunked HTTP upload format.
+- [CentauriPilot's Centauri Carbon protocol notes](https://github.com/hataketsu/CentauriPilot/blob/091e31b26297250778aa60c4baf62fc3b951b05f/docs/SDCP_PROTOCOL.md)
+  document firmware-specific commands and MJPEG camera behavior. Those notes
+  cover firmware 1.1.46; elegooctl's tested firmware is 1.1.40.
+
+| Operation | Command or endpoint | Reference |
+| --- | --- | --- |
+| Status and attributes | `0`, `1` | SDCP V3.0.0 |
+| File list, history IDs, task details | `258`, `320`, `321` | SDCP V3.0.0 |
+| File details, history video | `260`, `323` | Centauri firmware extensions |
+| Relative axis move | `401` with `Axis` and `Step` | Centauri firmware extension |
+| File upload | `/uploadFile/upload` | SDCP upload format; Centauri uses HTTP port 80 |
+| Camera | HTTP port 3031, `/video` | Centauri MJPEG stream |
+
+The CLI uses the read-only query allowlist and explicit jog command described
+above. Payloads, ports and camera transports can differ on other models or
+firmwares; the base SDCP specification alone does not establish compatibility.
+
 ## Development
+
+```sh
+nix develop
+go test -race -count=1 ./...
+go vet ./...
+go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+nix flake check
+```
+
+CI builds the CLI and runs the race-enabled tests, vet and vulnerability scan
+on Linux. The vulnerability scan uses the current Go vulnerability database.
 
 Tests use local mock HTTP/WebSocket servers and a simulated ffmpeg process;
 they do not connect to a physical printer or messaging service. Coverage includes
@@ -118,4 +171,9 @@ chunk boundaries, checksum rejection, camera parsing, no-overwrite behavior,
 recording reconnection, job identity, early stops and cooling conditions.
 
 Runtime recordings, status dumps, G-code and device configuration are not part
-of this source repository. Keep runtime output outside the checkout.
+of this source repository. Use the ignored output directories or keep runtime
+output outside the checkout.
+
+## License
+
+[MIT](LICENSE).
