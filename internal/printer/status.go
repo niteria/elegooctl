@@ -9,10 +9,11 @@ import (
 )
 
 type Status struct {
-	States      []int    `json:"CurrentStatus"`
-	Coordinates string   `json:"CurrenCoord"`
-	Bed         *float64 `json:"TempOfHotbed"`
-	BedTarget   *float64 `json:"TempTargetHotbed"`
+	Raw         map[string]any `json:"-"`
+	States      []int          `json:"CurrentStatus"`
+	Coordinates string         `json:"CurrenCoord"`
+	Bed         *float64       `json:"TempOfHotbed"`
+	BedTarget   *float64       `json:"TempTargetHotbed"`
 	Print       struct {
 		Filename string `json:"Filename"`
 		TaskID   string `json:"TaskId"`

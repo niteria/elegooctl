@@ -19,6 +19,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -74,6 +75,9 @@ func TestSDCPStatusAndQuery(t *testing.T) {
 	s, err := c.Status(context.Background())
 	if err != nil || !s.Idle() || *s.Bed != 25 {
 		t.Fatal(s, err)
+	}
+	if s.Raw["TempOfHotbed"] != float64(25) {
+		t.Fatal("lost raw status")
 	}
 	if _, err := c.Query(context.Background(), 320, map[string]any{}); err != nil {
 		t.Fatal(err)
@@ -333,7 +337,9 @@ func TestRecorderReconnectsAndKeepsManifest(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 	dir := filepath.Join(t.TempDir(), "recording")
-	if err := c.Record(ctx, active(), dir, 2, io.Discard); err != nil {
+	first := active()
+	first.Raw = map[string]any{"TempOfNozzle": 220, "CurrentFanSpeed": map[string]any{"ModelFan": 100}}
+	if err := c.Record(ctx, first, dir, 2, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "recording.json"))
@@ -344,6 +350,10 @@ func TestRecorderReconnectsAndKeepsManifest(t *testing.T) {
 	json.Unmarshal(data, &recording)
 	if recording.CameraFailures != 1 || len(recording.Segments) != 2 || !recording.Finished || queries.Load() == 0 {
 		t.Fatal(string(data))
+	}
+	trace, _ := os.ReadFile(filepath.Join(dir, "status.jsonl"))
+	if !strings.Contains(string(trace), `"TempOfNozzle":220`) {
+		t.Fatal("raw telemetry missing from trace")
 	}
 }
 

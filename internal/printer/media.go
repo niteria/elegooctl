@@ -177,7 +177,11 @@ func (c *Client) Record(ctx context.Context, first Status, directory string, ret
 	fresh := true
 	for {
 		if fresh {
-			if err := encoder.Encode(map[string]any{"time": time.Now(), "status": s}); err != nil {
+			var observed any = s
+			if s.Raw != nil {
+				observed = s.Raw
+			}
+			if err := encoder.Encode(map[string]any{"time": time.Now(), "status": observed}); err != nil {
 				return err
 			}
 		}

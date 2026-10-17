@@ -120,6 +120,7 @@ func (c *Client) Status(ctx context.Context) (Status, error) {
 	}
 	var status Status
 	err = json.Unmarshal(data, &status)
+	status.Raw = raw
 	return status, err
 }
 
