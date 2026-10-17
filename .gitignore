@@ -1,0 +1,9 @@
+/elegooctl
+/result
+/result-*
+/.direnv/
+/recordings/
+/captures/
+*.gcode
+*.3mf
+.env
